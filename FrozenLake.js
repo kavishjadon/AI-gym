@@ -23,10 +23,10 @@ class FrozenLake {
 
     // define environment variables
     this.action_space = ["left", "up", "right", "down"];
-    this.target_pos = target_pos ? target_pos : this.grid_size * this.grid_size;
+    this.target_pos = target_pos ? target_pos : this.grid_size * this.grid_size - this.grid_size + 1;
     this.size = this.area_size - this.border_width;
     this.max_grids = this.grid_size * this.grid_size;
-    this.initial_agent_pos = this.agent_pos;
+    this.initial_agent_pos = agent_pos;
     this.total_steps = 0;
     this.canvas = document.querySelector("canvas");
     this.canvas.width = this.area_size;
@@ -34,6 +34,11 @@ class FrozenLake {
     this.ctx = this.canvas.getContext("2d");
     this.ctx.translate(this.border_width / 2, this.border_width / 2);
     this.paint();
+  }
+
+  reset() {
+    this.agent_pos = this.initial_agent_pos;
+    this.paint({ reset: true });
   }
 
   paint(args = { reset: false, success: false }) {
@@ -95,6 +100,7 @@ class FrozenLake {
   }
 
   step(action) {
+    this.total_steps += 1;
     let new_state = this.agent_pos;
     let reward = 0;
     let done = false;
@@ -122,7 +128,7 @@ class FrozenLake {
     } else if (new_state == this.target_pos) {
       done = true;
       let minSteps = this.minStepsToTarget();
-      reward = (minSteps / this.totalSteps) * 100;
+      reward = (minSteps / this.total_steps) * 100;
     }
 
     this.agent_pos = new_state;
@@ -136,7 +142,8 @@ class FrozenLake {
       if (e.key.includes("Arrow")) this.step(e.key.split("Arrow")[1].toLowerCase());
     });
   }
-}
 
-let env = new FrozenLake({});
-env.activateManualControls(); // use arrow keys to control agent
+  delay(time) {
+    return new Promise((res) => setTimeout(res, time));
+  }
+}
