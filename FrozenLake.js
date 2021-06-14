@@ -36,8 +36,8 @@ class FrozenLake {
     this.paint();
   }
 
-  reset() {
-    this.agent_pos = this.initial_agent_pos;
+  reset(pos) {
+    this.agent_pos = pos ? pos : this.initial_agent_pos;
     this.paint({ reset: true });
   }
 
@@ -45,7 +45,7 @@ class FrozenLake {
     this.ctx.clearRect(0, 0, this.size, this.size);
     this.drawGrid();
     if (args.reset) this.total_steps = 0;
-    this.drawBox(args.reset ? this.initial_agent_pos : this.agent_pos, this.agent_color);
+    this.drawBox(this.agent_pos, this.agent_color);
     this.drawBox(this.target_pos, args.success ? this.success_color : this.target_color);
   }
 
@@ -99,6 +99,10 @@ class FrozenLake {
     return this.action_space[Math.floor(Math.random() * this.action_space.length)];
   }
 
+  randomPosition() {
+    return Math.floor(Math.random() * this.max_grids + 1);
+  }
+
   step(action) {
     this.total_steps += 1;
     let new_state = this.agent_pos;
@@ -130,11 +134,10 @@ class FrozenLake {
       let minSteps = this.minStepsToTarget();
       reward = (minSteps / this.total_steps) * 100;
     }
-
     this.agent_pos = new_state;
     let finished = this.agent_pos == this.target_pos;
     this.paint({ success: finished });
-    return { new_state, reward, done, info: { target_reached: finished, total_steps: this.total_steps } };
+    return { next_state: new_state, reward, done, info: { target_reached: finished, total_steps: this.total_steps } };
   }
 
   activateManualControls() {
