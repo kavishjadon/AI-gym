@@ -1,61 +1,44 @@
-const playGameRandom = async ({ total_episodes }) => {
-  let env = new FrozenLake({});
-  let episodes = 0;
-  let totalRewardAccumulated = 0;
-  while (episodes < total_episodes) {
-    let { done, reward } = env.step(env.randomAction());
-    await env.delay(0); // time in ms
-    totalRewardAccumulated += reward;
-    if (done) {
-      episodes += 1;
-      env.reset();
-    }
-  }
-  return { episodes, totalRewardAccumulated };
-};
-
-const playGameAI = async ({ total_episodes, grid_size, gamma = 0.9 }) => {
-  const qtable = Array.from(
-    Array.from({ length: grid_size * grid_size }, () => ({ left: 0, down: 0, right: 0, up: 0 }))
-  );
-
-  const getAction = (state) => {
-    let currState = qtable[state - 1];
-    let maxQValue = Math.max(...Object.values(currState));
-    let actions = Object.keys(currState).filter((action) => {
-      return currState[action] == maxQValue;
-    });
-    return { action: actions[Math.floor(Math.random() * actions.length)], qValue: maxQValue };
-  };
-
-  const train = ({ state, next_state, reward, action }) => {
-    if (state == grid_size * grid_size) return;
-    let newQValue = reward + gamma * getAction(next_state).qValue;
-    qtable[state - 1][action] = newQValue;
-  };
-
-  let env = new FrozenLake({ grid_size, target_pos: Math.floor(Math.random() * grid_size * grid_size + 1) });
-  let episodes = 0;
-  let totalRewardAccumulated = 0;
-  while (episodes < total_episodes) {
-    if (episodes == total_episodes - 1) await env.delay(300);
-    else await env.delay(0); // time in ms
-    let state = env.agent_pos;
-    let { action } = getAction(state);
-    let { next_state, done, reward, info } = env.step(action);
-    train({ state, next_state, reward, action });
-    totalRewardAccumulated += reward;
-    if (done) {
-      console.log({ ...info, episode_no: episodes });
-      episodes += 1;
-      if (episodes == total_episodes - 1 || episodes == total_episodes) await env.delay(3000);
-      env.reset();
-    }
-  }
-  return { episodes, totalRewardAccumulated, qtable };
-};
-
 (async () => {
-  let res = await playGameAI({ total_episodes: 100, grid_size: 7 });
-  console.log(res);
+  const episodes = 50;
+  const gamma = 0.1;
+  const decay = 0.1;
+  const grid_size = 7;
+  const env = new FrozenLake({
+    grid_size,
+    area_size: 600,
+    // total_pits: 40,
+  });
+
+  let epsilon = 0.8;
+  let episode = 0;
+
+  let qtable = new Array(grid_size * grid_size);
+  for (let i = 0; i < qtable.length; i++) qtable[i] = [Math.random(), Math.random(), Math.random(), Math.random()];
+
+  await env.delay(500);
+  while (episode < episodes) {
+    if (episode == episodes - 1) await env.delay(300);
+    else await env.delay(0);
+
+    // choose optimal action
+    let state = env.agent_pos;
+    let action;
+    if (Math.random() < epsilon) action = env.randomAction();
+    else action = qtable[state - 1].indexOf(Math.max(...qtable[state - 1]));
+
+    // take action
+    let { next_state, reward, total_steps, finished } = env.step(action + 1);
+
+    // train ai
+    qtable[state - 1][action] = reward + gamma * Math.max(...qtable[next_state - 1]);
+
+    if (finished) {
+      episode += 1;
+      epsilon -= decay * epsilon;
+      console.log(`Episode ${episode}, steps taken: `, total_steps);
+      if (episode == episodes - 1 || episode == episodes) await env.delay(3000);
+      else await env.delay(0);
+      env.reset();
+    }
+  }
 })();

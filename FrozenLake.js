@@ -9,6 +9,8 @@ class FrozenLake {
     agent_color = "#ff1493",
     target_color = "#1e90ff",
     success_color = "#3cb371",
+    pit_color = "#708090",
+    total_pits = 0,
   }) {
     // initialize constructor
     this.grid_size = grid_size;
@@ -20,12 +22,13 @@ class FrozenLake {
     this.agent_color = agent_color;
     this.target_color = target_color;
     this.success_color = success_color;
+    this.pit_color = pit_color;
 
     // define environment variables
-    this.action_space = ["left", "up", "right", "down"];
-    this.target_pos = target_pos ? target_pos : this.grid_size * this.grid_size - this.grid_size + 1;
-    this.size = this.area_size - this.border_width;
+    this.action_space = [1, 2, 3, 4]; // [left, right, up, down]
     this.max_grids = this.grid_size * this.grid_size;
+    this.target_pos = target_pos ? target_pos : this.randomPosition();
+    this.size = this.area_size - this.border_width;
     this.initial_agent_pos = agent_pos;
     this.total_steps = 0;
     this.canvas = document.querySelector("canvas");
@@ -33,6 +36,16 @@ class FrozenLake {
     this.canvas.height = this.area_size;
     this.ctx = this.canvas.getContext("2d");
     this.ctx.translate(this.border_width / 2, this.border_width / 2);
+    // this.pits = [
+    //   11, 12, 13, 14, 15, 16, 17, 18, 19, 32, 33, 34, 35, 36, 37, 38, 39, 40, 51, 52, 53, 54, 55, 56, 57, 58, 59, 72,
+    //   73, 74, 75, 76, 77, 78, 79, 80, 91, 92, 93, 94, 95, 96, 97, 98, 99,
+    // ];
+    this.pits = [];
+    for (let i = 0; i < total_pits; i++) {
+      let pit_pos = this.randomPosition();
+      if (pit_pos == this.agent_pos || pit_pos == this.target_pos) i--;
+      else this.pits.push(pit_pos);
+    }
     this.paint();
   }
 
@@ -46,6 +59,7 @@ class FrozenLake {
     this.drawGrid();
     if (args.reset) this.total_steps = 0;
     this.drawBox(this.agent_pos, this.agent_color);
+    this.pits.forEach((pit_pos) => this.drawBox(pit_pos, this.pit_color));
     this.drawBox(this.target_pos, args.success ? this.success_color : this.target_color);
   }
 
@@ -105,44 +119,46 @@ class FrozenLake {
 
   step(action) {
     this.total_steps += 1;
-    let new_state = this.agent_pos;
+    let next_state = this.agent_pos;
     let reward = 0;
     let done = false;
+    let finished = false;
+
     // calculate new agent position
     switch (action) {
-      case "left":
-        if (new_state % this.grid_size != 1) new_state -= 1;
-        else reward = -5;
+      case 1:
+        if (next_state % this.grid_size != 1) next_state -= 1;
         break;
-      case "right":
-        if (new_state % this.grid_size != 0) new_state += 1;
-        else reward = -5;
+      case 2:
+        if (next_state % this.grid_size != 0) next_state += 1;
         break;
-      case "up":
-        new_state -= this.grid_size;
+      case 3:
+        next_state -= this.grid_size;
         break;
-      case "down":
-        new_state += this.grid_size;
+      case 4:
+        next_state += this.grid_size;
         break;
     }
 
-    if (new_state < 1 || new_state > this.max_grids) {
-      new_state = this.agent_pos;
-      reward = -5;
-    } else if (new_state == this.target_pos) {
-      done = true;
-      let minSteps = this.minStepsToTarget();
-      reward = (minSteps / this.total_steps) * 100;
+    if (next_state < 1 || next_state > this.max_grids || this.pits.includes(next_state)) {
+      next_state = this.agent_pos;
+    } else if (next_state == this.target_pos) {
+      finished = true;
+      reward = 1;
     }
-    this.agent_pos = new_state;
-    let finished = this.agent_pos == this.target_pos;
+
+    this.agent_pos = next_state;
     this.paint({ success: finished });
-    return { next_state: new_state, reward, done, info: { target_reached: finished, total_steps: this.total_steps } };
+    return { next_state, reward, done, total_steps: this.total_steps, finished };
   }
 
   activateManualControls() {
+    let actions = ["left", "right", "up", "down"];
     window.addEventListener("keydown", (e) => {
-      if (e.key.includes("Arrow")) this.step(e.key.split("Arrow")[1].toLowerCase());
+      if (e.key.includes("Arrow")) {
+        let action = actions.indexOf(e.key.split("Arrow")[1].toLowerCase()) + 1;
+        this.step(action);
+      }
     });
   }
 
